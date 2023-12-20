@@ -1,0 +1,5 @@
+Gummibärchen,2.2
+Lachgummi,2
+Fleischkäse,1.5
+Apfel,0.8
+Milch,2.1
