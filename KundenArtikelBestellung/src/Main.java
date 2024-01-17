@@ -1,78 +1,117 @@
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.Statement;
 import java.util.Scanner;
 
 public class Main {
-    static Connection c = null;
-    static Statement st = null;
     public static void main(String[] args) {
-        getConnection("//localhost:3306/");
-        Costumer costm = new Costumer(st);
-        Artikel art = new Artikel(st);
-        Order ord = new Order(st);
+        DBConnection con = new DBConnection();
+        DBConnection.Costumer costumer = new DBConnection.Costumer();
+        DBConnection.Artikel art = new DBConnection.Artikel();
+        DBConnection.Order ord = new DBConnection.Order();
+        DBConnection.Storage storage = new DBConnection.Storage();
 
-        System.out.println("Bestellprojekt:");
-        Scanner scan = new Scanner(System.in);
         boolean orderProcess = true;
         orderStatus ordStat = orderStatus.chooseCostumer;
-        String currentCostumer = "";
+        int currentCostumerNr = 0;
+        String temporary = "";
+        Scanner scan = new Scanner(System.in);
+
+        //check if there is any given Input in args, when there is an input
+        if(args.length != 0){
+            if (args[0].equals("master")) ordStat = orderStatus.masterStatus;
+            else if (costumer.searchCostumerName(args[0]) != 0){
+                currentCostumerNr = costumer.searchCostumerName(args[0]);
+                ordStat = orderStatus.chooseArticle;
+            }else ordStat = orderStatus.chooseCostumer;
+        }
+        System.out.println("Bestellprojekt:");
         while (orderProcess){
-            switch (ordStat){
-                case chooseCostumer :
+            switch (ordStat) {
+                case chooseCostumer -> {
                     System.out.println("Entweder erstellen Sie einen Kunden oder sie geben ihren Namen ein, wenn sie schon etwas bestellt haben");
-                    System.out.println("erstellen oder suchen");
+                    System.out.println("erstellen [a] oder suchen[b]");
                     String choose = scan.nextLine();
-                    if (choose.equals("erstellen")){
-                        System.out.print("Name:");
+                    if (choose.equals("a")) {
+                        System.out.print("Name (Format vn nn):");
                         String name = scan.nextLine();
                         System.out.print("Gebutsdatum (Format tt.mm.yyyy):");
                         String birthday = scan.nextLine();
                         System.out.print("Email: ");
-                        costm.createCostumer(name,scan.nextLine(),birthday);
-                        currentCostumer = name;
-                        System.out.println("Eingeloggt als "+name);
+                        DBConnection.Costumer.createCostumer(name, scan.nextLine(), birthday);
+                        currentCostumerNr = costumer.searchCostumerName(name);
+                        System.out.println("Eingeloggt als " + name);
                         ordStat = orderStatus.chooseArticle;
-                    } else if (choose.equals("suchen")){
-                        System.out.println("Geben sie ihren Namen ein: ");
-                        currentCostumer = scan.nextLine();
-                        if(currentCostumer.equals("master")) ordStat = orderStatus.masterStatus;
-                        else if (!currentCostumer.isEmpty()) ordStat = orderStatus.chooseArticle;
-                    }else System.out.println("Bitte geben sie entweder erstellen oder wählen ein..");
-                    break;
-                case chooseArticle:
-                    art.showAllArticles();
-                    System.out.println("Wählen Sie einen Artikel aus: ");
-                    String arikl = scan.next();
-                    System.out.println("Wie viele möchten die vom "+arikl+" haben?");
-                    ord.createOrder(currentCostumer,arikl, Integer.parseInt(scan.next()));
-                    ordStat = orderStatus.showOrder;
-                    break;
-                case showOrder:
+                    } else if (choose.equals("b")) {
+                        System.out.println("Geben sie ihren Namen ein (Format vn nn): ");
+                        temporary = scan.nextLine();
+                        if (temporary.equals("master")) ordStat = orderStatus.masterStatus;
+                        else if (costumer.searchCostumerName(temporary)!=0){
+                            ordStat = orderStatus.chooseArticle;
+                            currentCostumerNr = costumer.searchCostumerName(temporary);
+                        }
+                        else System.out.println("There is no costumer named "+temporary+" in our system!");
+                    } else System.out.println("Bitte geben sie entweder erstellen [a] oder suchen [b] ein..");
+                }
+                case chooseArticle -> {
+                    System.out.println("Ihr aktueller Warenkorb: ");
+                    ord.showOrdersCostumer(currentCostumerNr);
+                    System.out.println("Wählen Sie einen neuen Artikel aus [a], bearbeiten sie die Menge der Artikel [b] oder löschen sie einen Artikel aus dem Warenkorb [c]:");
+                    String decision = scan.next();
+                    if(decision.equals("a")) {
+                        art.showAllArticles();
+                        System.out.println("Welchen Artikel möchten sie bestellen (geben sie den Namen des Artikels an)?");
+                        String arikl = scan.next();
+                        System.out.println("Wie viele möchten die vom " + arikl + " haben?");
+                        DBConnection.Order.createOrder(currentCostumerNr, arikl, Integer.parseInt(scan.next()));
+                        ordStat = orderStatus.showOrder;
+                    } else if (decision.equals("b")) {
+                        System.out.println("Bei welchem Artikel möchten Sie die Menge bearbeiten?");
+                        String artikl = scan.next();
+                        System.out.println("Wie viele möchten die vom " + artikl + " haben?");
+                        int amount = scan.nextInt();
+                        ord.updateOrder(currentCostumerNr, artikl,amount);
+                        ordStat = orderStatus.showOrder;
+                    } else if (decision.equals("c")) {
+                        System.out.println("Bei welchem Artikel möchten Sie löschen?");
+                        String artikl = scan.next();
+                        ord.deleteOrder(currentCostumerNr,artikl);
+                        ordStat = orderStatus.showOrder;
+                    } else {
+                        System.out.println("Ungültige Eingabe!!");
+                    }
+                }
+                case showOrder -> {
                     System.out.println("Hier ist alles was sie bestellt haben:");
-                    ord.showOrdersCostumer(currentCostumer);
-                    System.out.println("Möchten sie noch weitere Sachen bestellen, die Bestellung abschließen oder den User wechseln? (bestellen/abschliessen oder wechseln bitte eingeben!)");
+                    ord.showOrdersCostumer(currentCostumerNr);
+                    System.out.println("Möchten sie noch weitere Sachen bestellen[a], die Bestellung abschließen [b], den User wechseln [c], das Profl löschen [d] oder den Warenkorb bearbeiten [e]?");
                     String decision = scan.next();
                     switch (decision) {
-                        case "bestellen" -> ordStat = orderStatus.chooseArticle;
-                        case "abschliessen" -> {
+                        case "a" -> ordStat = orderStatus.chooseArticle;
+                        case "b" -> {
                             System.out.println("Auf wiedersehen!");
                             orderProcess = false;
                         }
-                        case "wechseln" -> {
+                        case "c" -> {
                             ordStat = orderStatus.chooseCostumer;
-                            currentCostumer = "";
+                            currentCostumerNr = 0;
                         }
-                        default -> {System.out.println("Ungültige Eingabe!! ");
-                                ordStat = orderStatus.showOrder;}
+                        case "d" ->{
+                            costumer.deleteCostumer(currentCostumerNr);
+                            ordStat = orderStatus.chooseCostumer;
+                        }
+                        case "e" ->{
+                            ordStat = orderStatus.chooseArticle;
+                        }
+                        default -> {
+                            System.out.println("Ungültige Eingabe!! ");
+                            ordStat = orderStatus.showOrder;
+                        }
                     }
-                    break;
-                case masterStatus:
+                }
+                case masterStatus -> {
                     System.out.println("Sie befinden sich im Master-Modus!");
                     System.out.println("Möchten sie einen Artikel/Kunden/Bestellung erstellen oder alle Kunden/Artikel/Bestellungen anschauen? (Eingabeformat Artikel erstellen oder so)");
                     String decis = scan.nextLine();
-                    switch (decis){
-                        case "Artikel erstellen":{
+                    switch (decis) {
+                        case "Artikel erstellen": {
                             System.out.println("Name:");
                             String na = scan.nextLine();
                             System.out.println("Preis:");
@@ -85,38 +124,9 @@ public class Main {
                         case "Artikel anschauen":
                         case "Bestellungen anschauen":
                     }
-                    break;
+                }
             }
         }
-        closeConnection();
-    }
-
-    //build up DB connection
-    public static void getConnection(String url)
-    {
-        try
-        {
-            c = DriverManager.getConnection("jdbc:mysql:"+url,"user2","MySQLDB5");
-            st = c.createStatement();
-            st.executeUpdate("DROP DATABASE IF EXISTS bestellproject;");
-            st.executeUpdate("CREATE DATABASE IF NOT EXISTS bestellproject;");
-            st.executeUpdate("USE bestellproject;");
-        }
-        catch (Exception e)
-        {
-            System.out.println("There was an Error thrown in getConnection Method ");
-            System.out.println(e.getMessage());
-        }
-    }
-    //close DB connection
-    public static void closeConnection()
-    {
-        try {
-            st.close();
-            c.close();
-        } catch (Exception e) {
-            System.out.println("There was an Error thrown in closeConnection Method");
-            System.out.println(e.getMessage());
-        }
+        con.closeConnection();
     }
 }
